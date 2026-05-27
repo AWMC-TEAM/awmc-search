@@ -1,0 +1,29 @@
+{
+  "name": "maisearch",
+  "version": "2.0.0",
+  "private": true,
+  "description": "MaiMai 歌曲检索 SPA，自动从水鱼查分器同步乐曲数据",
+  "scripts": {
+    "serve": "cross-env NODE_OPTIONS=--openssl-legacy-provider vue-cli-service serve",
+    "build": "cross-env NODE_OPTIONS=--openssl-legacy-provider vue-cli-service build"
+  },
+  "dependencies": {
+    "axios": "0.21.4",
+    "core-js": "3.20.0",
+    "element-ui": "2.15.6",
+    "v-viewer": "1.6.4",
+    "vue": "2.6.14",
+    "vue-clipboard2": "0.3.3"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "4.5.15",
+    "@vue/cli-service": "4.5.15",
+    "cross-env": "7.0.3",
+    "vue-template-compiler": "2.6.14"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}
