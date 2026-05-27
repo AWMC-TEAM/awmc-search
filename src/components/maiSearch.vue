@@ -130,7 +130,7 @@
             size="small"
             :icon="darkMode ? 'el-icon-sunny' : 'el-icon-moon'"
             @click="toggleDarkMode"
-          >{{ darkMode ? '浅色模式' : '深色模式' }}</el-button>
+          >{{ darkMode ? '浅色模式' : '深色模式' }}<span v-if="darkModeFollowSystem" style="font-size:11px;margin-left:3px;opacity:0.7">(跟随系统)</span></el-button>
           <span
             v-if="dataUpdatedAt"
             style="margin-left: 10px; color: #909399; font-size: 12px"
@@ -817,7 +817,7 @@
                   size="small"
                   :icon="darkMode ? 'el-icon-sunny' : 'el-icon-moon'"
                   @click="toggleDarkMode"
-                >{{ darkMode ? '浅色模式' : '深色模式' }}</el-button>
+                >{{ darkMode ? '浅色模式' : '深色模式' }}<span v-if="darkModeFollowSystem" style="font-size:11px;margin-left:3px;opacity:0.7">(跟随系统)</span></el-button>
                 <span
                   v-if="dataUpdatedAt"
                   style="margin-left: 8px; color: #909399; font-size: 11px"
@@ -1360,6 +1360,8 @@ export default {
 
       // 深色模式
       darkMode: false,
+      darkModeFollowSystem: true, // true = 跟随系统，false = 用户手动锁定
+      _darkMediaQuery: null, // matchMedia 实例（供 beforeDestroy 清理）
     };
   },
 
@@ -1370,11 +1372,18 @@ export default {
       try {
         const savedDark = localStorage.getItem("maiSearch:darkMode");
         if (savedDark === "1") {
+          // 手动锁定为深色
+          that.darkModeFollowSystem = false;
           that.darkMode = true;
-        } else if (savedDark === null) {
-          that.darkMode =
-            window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches;
+        } else if (savedDark === "0") {
+          // 手动锁定为浅色
+          that.darkModeFollowSystem = false;
+          that.darkMode = false;
+        } else {
+          // 首次访问 / 未选择过 → 跟随系统
+          that.darkModeFollowSystem = true;
+          that.darkMode = that._getSystemDark();
+          that._watchSystemDark();
         }
       } catch (e) {
         /* noop */
@@ -1390,6 +1399,21 @@ export default {
       // 别名数据并行从柚子社拉取
       await that.fetchAndApplyMusicData();
     });
+  },
+
+  beforeDestroy() {
+    // 清理 matchMedia 监听器
+    try {
+      if (this._darkMediaQuery && this._darkHandler) {
+        if (this._darkMediaQuery.removeEventListener) {
+          this._darkMediaQuery.removeEventListener("change", this._darkHandler);
+        } else if (this._darkMediaQuery.removeListener) {
+          this._darkMediaQuery.removeListener(this._darkHandler);
+        }
+      }
+    } catch (e) {
+      /* noop */
+    }
   },
 
   methods: {
@@ -1446,9 +1470,51 @@ export default {
       img.src = COVER_FALLBACK_URL;
     },
 
+    // 读取系统当前深浅色
+    _getSystemDark() {
+      try {
+        return window.matchMedia
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches
+          : false;
+      } catch (e) {
+        return false;
+      }
+    },
+
+    // 监听系统主题变化，实时跟随（仅当无手动锁定时生效）
+    _watchSystemDark() {
+      try {
+        const mq = window.matchMedia("(prefers-color-scheme: dark)");
+        this._darkMediaQuery = mq;
+        const handler = (e) => {
+          if (!this.darkModeFollowSystem) return;
+          this.darkMode = !!e.matches;
+          this.applyDarkMode();
+        };
+        // 兼容旧浏览器 addListener / 新标准 addEventListener
+        if (mq.addEventListener) {
+          mq.addEventListener("change", handler);
+        } else if (mq.addListener) {
+          mq.addListener(handler);
+        }
+        this._darkHandler = handler;
+      } catch (e) {
+        /* noop */
+      }
+    },
+
     // 切换深色模式
+    // 当前无手动锁定 → 点击 = 锁定为相反色（例如当前浅色 → 锁定深色）
+    // 当前手动锁定 → 点击 = 切换为相反色
     toggleDarkMode() {
-      this.darkMode = !this.darkMode;
+      if (this.darkModeFollowSystem) {
+        // 从跟随系统 → 锁定为相反色
+        this.darkMode = !this.darkMode;
+        this.darkModeFollowSystem = false;
+      } else {
+        // 手动切换
+        this.darkMode = !this.darkMode;
+      }
       try {
         localStorage.setItem("maiSearch:darkMode", this.darkMode ? "1" : "0");
       } catch (e) {
